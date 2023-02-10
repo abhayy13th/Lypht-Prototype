@@ -51,7 +51,10 @@ class _HomePageState extends State<HomePage> {
                   debugPrint('Action');
                 }
               },
-              icon: const Icon(Icons.accessibility_outlined))
+              icon: Icon(
+                Icons.accessibility_outlined,
+                color: isDark ? Colors.black : Colors.white,
+              ))
         ],
       ),
       body: Stack(
