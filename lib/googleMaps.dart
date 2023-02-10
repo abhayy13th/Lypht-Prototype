@@ -15,22 +15,24 @@ class GoogleMapsPage extends StatefulWidget {
 
 class GoogleMapsPageState extends State<GoogleMapsPage> {
   final Completer<GoogleMapController> _controller = Completer();
+  TextEditingController _searchController = TextEditingController();
 
-  static const LatLng sourceLocation = LatLng(37.4221, -122.0841);
-  static const LatLng destination = LatLng(37.4116, -122.0713);
+  static LatLng? sourceLocation;
+  static LatLng? destination;
+  Marker? _origin;
+  Marker? _destination;
+  bool rideStart = false;
+  // Directions? _info;
 
   List<LatLng> polylineCordinates = [];
   LocationData? currentLocation;
-
-  BitmapDescriptor sourcePin = BitmapDescriptor.defaultMarker;
-  BitmapDescriptor destinationPin = BitmapDescriptor.defaultMarker;
-  BitmapDescriptor currentPin = BitmapDescriptor.defaultMarker;
 
   void getCurrentLocation() async {
     Location location = Location();
 
     location.getLocation().then((location) {
       currentLocation = location;
+      debugPrint(currentLocation.toString());
       if (mounted) {
         setState(() {});
       }
@@ -55,11 +57,12 @@ class GoogleMapsPageState extends State<GoogleMapsPage> {
   }
 
   void getPolyPoints() async {
+    polylineCordinates = [];
     PolylinePoints polylinePoints = PolylinePoints();
     PolylineResult result = await polylinePoints.getRouteBetweenCoordinates(
         google_api_key,
-        PointLatLng(sourceLocation.latitude, sourceLocation.longitude),
-        PointLatLng(destination.latitude, destination.longitude));
+        PointLatLng(sourceLocation!.latitude, sourceLocation!.longitude),
+        PointLatLng(destination!.latitude, destination!.longitude));
 
     if (result.points.isNotEmpty) {
       result.points.forEach((PointLatLng point) {
@@ -69,45 +72,55 @@ class GoogleMapsPageState extends State<GoogleMapsPage> {
     }
   }
 
-  void setCustomMarkerIcon() {
-    BitmapDescriptor.fromAssetImage(
-            ImageConfiguration.empty, 'images/Pin_source.png')
-        .then((icon) => sourcePin = icon);
-    BitmapDescriptor.fromAssetImage(
-            ImageConfiguration.empty, 'images/Pin_destination.png')
-        .then((icon) => destinationPin = icon);
-    BitmapDescriptor.fromAssetImage(
-            ImageConfiguration.empty, 'images/Pin_current.png')
-        .then((icon) => currentPin = icon);
+  void addMarker(LatLng pos) async {
+    if (_origin == null || (_origin != null && _destination != null)) {
+      setState(() {
+        sourceLocation = pos;
+        polylineCordinates = [];
+        _origin = Marker(
+          markerId: const MarkerId('origin'),
+          infoWindow: const InfoWindow(title: 'Start'),
+          position: pos,
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueRed,
+          ),
+        );
+        _destination = null;
+        // _info = null;
+      });
+    } else {
+      setState(() {
+        destination = pos;
+        _destination = Marker(
+          markerId: const MarkerId('destination'),
+          infoWindow: const InfoWindow(title: 'End'),
+          position: pos,
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueRed,
+          ),
+        );
+      });
+      getPolyPoints();
+      rideStart = true;
+      // final directions = await DirectionRepo()
+      //     .getDirections(origin: _origin!.position, destination: pos);
+      // setState(() {
+      //   _info = directions;
+      // });
+    }
   }
 
   @override
   void initState() {
-    getPolyPoints();
     getCurrentLocation();
     super.initState();
+    destination = null;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        // automaticallyImplyLeading: false,
-        // leading: GestureDetector(
-        //   child: const Icon(
-        //     Icons.arrow_back_outlined,
-        //     color: Colors.white,
-        //   ),
-        //   onTap: () {
-        //     Navigator.of(context).push(
-        //       MaterialPageRoute(
-        //         builder: (BuildContext context) {
-        //           return const MyApp();
-        //         },
-        //       ),
-        //     );
-        //   },
-        // ),
         title: const Text(
           "Maps",
         ),
@@ -116,50 +129,82 @@ class GoogleMapsPageState extends State<GoogleMapsPage> {
           ? const Center(
               child: Text('Loading...'),
             )
-          : Center(
-              child: GoogleMap(
-                initialCameraPosition: CameraPosition(
-                  target: LatLng(
-                      currentLocation!.latitude!, currentLocation!.longitude!),
-                  zoom: 13.5,
+          : Stack(
+              children: [
+                Center(
+                  child: GoogleMap(
+                    initialCameraPosition: CameraPosition(
+                      target: LatLng(currentLocation!.latitude!,
+                          currentLocation!.longitude!),
+                      zoom: 15.5,
+                    ),
+                    myLocationEnabled: true,
+                    myLocationButtonEnabled: true,
+                    zoomControlsEnabled: true,
+                    compassEnabled: true,
+                    polylines: {
+                      if (destination != null)
+                        Polyline(
+                          polylineId: const PolylineId('Route'),
+                          color: primaryColor,
+                          points: polylineCordinates,
+                          width: 6,
+                        )
+                    },
+                    onMapCreated: (GoogleMapController controller) {
+                      if (_controller.isCompleted) {
+                        _controller.future.then((value) => value.dispose());
+                      }
+                    },
+                    mapType: MapType.normal,
+                    markers: {
+                      if (rideStart == true)
+                        Marker(
+                          markerId: const MarkerId('CurrentLocation'),
+                          infoWindow:
+                              const InfoWindow(title: 'Current Location'),
+                          position: LatLng(currentLocation!.latitude!,
+                              currentLocation!.longitude!),
+                          icon: BitmapDescriptor.defaultMarkerWithHue(
+                            BitmapDescriptor.hueViolet,
+                          ),
+                        ),
+                      if (_origin != null) _origin!,
+                      if (_destination != null) _destination!,
+                    },
+                    onLongPress: addMarker,
+                  ),
                 ),
-                polylines: {
-                  Polyline(
-                    polylineId: const PolylineId('Route'),
-                    color: primaryColor,
-                    points: polylineCordinates,
-                    width: 6,
-                  ),
-                },
-                onMapCreated: (GoogleMapController controller) {
-                  if (_controller.isCompleted) {
-                    _controller.future.then((value) => value.dispose());
-                  }
-                },
-                mapType: MapType.normal,
-                markers: {
-                  Marker(
-                    markerId: const MarkerId('current location'),
-                    position: LatLng(currentLocation!.latitude!,
-                        currentLocation!.longitude!),
-                    icon: BitmapDescriptor.defaultMarkerWithHue(
-                        BitmapDescriptor.hueBlue),
-                  ),
-                  Marker(
-                    markerId: const MarkerId('source'),
-                    position: sourceLocation,
-                    icon: BitmapDescriptor.defaultMarkerWithHue(
-                        BitmapDescriptor.hueRed),
-                  ),
-                  Marker(
-                    markerId: const MarkerId('destination'),
-                    position: destination,
-                    icon: BitmapDescriptor.defaultMarkerWithHue(
-                      BitmapDescriptor.hueRed,
+                Positioned(
+                  bottom: 10,
+                  left: 10,
+                  right: 10,
+                  child: Container(
+                    height: 50,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Colors.grey,
+                          blurRadius: 6,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: TextField(
+                      controller: _searchController,
+                      decoration: const InputDecoration(
+                        hintText: 'Search',
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.only(left: 15, top: 15),
+                        suffixIcon: Icon(Icons.search),
+                      ),
                     ),
                   ),
-                },
-              ),
+                ),
+              ],
             ),
     );
   }
