@@ -1,10 +1,16 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import 'package:flutter_google_places/flutter_google_places.dart';
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:location/location.dart';
+import 'package:location/location.dart' as L;
 import 'package:lypht_prptotype/components/constants.dart';
+import 'package:google_maps_webservice/places.dart';
+import 'package:google_api_headers/google_api_headers.dart';
+// import 'package:lypht_prptotype/locationService.dart';
+// import 'package:lypht_prptotype/locationController.dart';
 
 class GoogleMapsPage extends StatefulWidget {
   const GoogleMapsPage({Key? key}) : super(key: key);
@@ -14,21 +20,32 @@ class GoogleMapsPage extends StatefulWidget {
 }
 
 class GoogleMapsPageState extends State<GoogleMapsPage> {
+  late GoogleMapController googleMapController;
   final Completer<GoogleMapController> _controller = Completer();
-  TextEditingController _searchController = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
+  final homeScaffoldkey = GlobalKey<ScaffoldState>();
 
   static LatLng? sourceLocation;
   static LatLng? destination;
   Marker? _origin;
   Marker? _destination;
   bool rideStart = false;
-  // Directions? _info;
 
   List<LatLng> polylineCordinates = [];
-  LocationData? currentLocation;
+  L.LocationData? currentLocation;
+//Remove markers
+  void removeMarker() {
+    setState(() {
+      _origin = null;
+      _destination = null;
+      polylineCordinates = [];
+      rideStart = false;
+    });
+  }
 
+//Current Location
   void getCurrentLocation() async {
-    Location location = Location();
+    L.Location location = L.Location();
 
     location.getLocation().then((location) {
       currentLocation = location;
@@ -38,24 +55,17 @@ class GoogleMapsPageState extends State<GoogleMapsPage> {
       }
     });
 
-    GoogleMapController googleMapController = await _controller.future;
-
-    location.onLocationChanged.listen((newLocation) {
-      currentLocation = newLocation;
-      googleMapController.animateCamera(
-        CameraUpdate.newCameraPosition(
-          CameraPosition(
-            target: LatLng(newLocation.latitude!, newLocation.longitude!),
-            zoom: 13.5,
-          ),
-        ),
-      );
+    location.onLocationChanged.listen((L.LocationData currentLocation) {
       if (mounted) {
-        setState(() {});
+        setState(() {
+          sourceLocation = LatLng(currentLocation.latitude!,
+              currentLocation.longitude!); //update current location
+        });
       }
     });
   }
 
+//Directional Lines
   void getPolyPoints() async {
     polylineCordinates = [];
     PolylinePoints polylinePoints = PolylinePoints();
@@ -68,10 +78,14 @@ class GoogleMapsPageState extends State<GoogleMapsPage> {
       result.points.forEach((PointLatLng point) {
         polylineCordinates.add(LatLng(point.latitude, point.longitude));
       });
-      setState(() {});
+
+      setState(() {
+        rideStart = true;
+      });
     }
   }
 
+//Marker Pins add
   void addMarker(LatLng pos) async {
     if (_origin == null || (_origin != null && _destination != null)) {
       setState(() {
@@ -86,7 +100,6 @@ class GoogleMapsPageState extends State<GoogleMapsPage> {
           ),
         );
         _destination = null;
-        // _info = null;
       });
     } else {
       setState(() {
@@ -101,46 +114,90 @@ class GoogleMapsPageState extends State<GoogleMapsPage> {
         );
       });
       getPolyPoints();
-      rideStart = true;
-      // final directions = await DirectionRepo()
-      //     .getDirections(origin: _origin!.position, destination: pos);
-      // setState(() {
-      //   _info = directions;
-      // });
     }
   }
 
+  Future<void> _handleSearch() async {
+    Prediction? p = await PlacesAutocomplete.show(
+        context: context,
+        apiKey: google_api_key,
+        mode: Mode.overlay,
+        language: "en",
+        onError: (PlacesAutocompleteResponse response) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(response.errorMessage!)));
+        },
+        strictbounds: false,
+        types: [],
+        decoration: const InputDecoration(hintText: "Search"),
+        components: [Component(Component.country, "np")]);
+    if (p != null) {
+      displayPrediction(p, homeScaffoldkey.currentState);
+    }
+  }
+
+  Future<void> displayPrediction(
+      Prediction? p, ScaffoldState? currentState) async {
+    if (p != null) {
+      GoogleMapsPlaces places = GoogleMapsPlaces(
+          apiKey: google_api_key,
+          apiHeaders: await const GoogleApiHeaders().getHeaders());
+      PlacesDetailsResponse detail =
+          await places.getDetailsByPlaceId(p.placeId!);
+
+      final lat = detail.result.geometry!.location.lat;
+      final lng = detail.result.geometry!.location.lng;
+
+      addMarker(LatLng(lat, lng));
+
+      googleMapController
+          .animateCamera(CameraUpdate.newLatLngZoom(LatLng(lat, lng), 15));
+    }
+  }
+
+//initial method
   @override
   void initState() {
+    removeMarker();
     getCurrentLocation();
     super.initState();
     destination = null;
   }
 
+//Main method
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: homeScaffoldkey,
       appBar: AppBar(
         title: const Text(
           "Maps",
         ),
+        actions: [
+          IconButton(
+            onPressed: () {
+              removeMarker();
+            },
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
       ),
       body: currentLocation == null
           ? const Center(
               child: Text('Loading...'),
             )
-          : Stack(
+          : Column(
               children: [
-                Center(
+                Expanded(
                   child: GoogleMap(
                     initialCameraPosition: CameraPosition(
                       target: LatLng(currentLocation!.latitude!,
                           currentLocation!.longitude!),
-                      zoom: 15.5,
+                      zoom: 16.5,
                     ),
                     myLocationEnabled: true,
                     myLocationButtonEnabled: true,
-                    zoomControlsEnabled: true,
+                    zoomControlsEnabled: false,
                     compassEnabled: true,
                     polylines: {
                       if (destination != null)
@@ -148,10 +205,11 @@ class GoogleMapsPageState extends State<GoogleMapsPage> {
                           polylineId: const PolylineId('Route'),
                           color: primaryColor,
                           points: polylineCordinates,
-                          width: 6,
+                          width: 4,
                         )
                     },
                     onMapCreated: (GoogleMapController controller) {
+                      googleMapController = controller;
                       if (_controller.isCompleted) {
                         _controller.future.then((value) => value.dispose());
                       }
@@ -175,32 +233,106 @@ class GoogleMapsPageState extends State<GoogleMapsPage> {
                     onLongPress: addMarker,
                   ),
                 ),
+                // Positioned(
+                //   top: 100,
+                //   left: 10,
+                //   right: 20,
+                //   child: GestureDetector(
+                //     onTap: () => Get.dialog(
+                //         LocationSearchDialog(mapController: _mapController)),
+                //     child: Container(
+                //       height: 50,
+                //       padding: const EdgeInsets.symmetric(horizontal: 5),
+                //       decoration: BoxDecoration(
+                //           color: Theme.of(context).cardColor,
+                //           borderRadius: BorderRadius.circular(10)),
+                //       child: Row(children: [
+                //         Icon(Icons.location_on,
+                //             size: 25, color: Theme.of(context).primaryColor),
+                //         const SizedBox(width: 5),
+                //         //here we show the address on the top
+                //         Expanded(
+                //           child: Text(
+                //             '${locationController.pickPlaceMarker.name ?? ''} ${locationController.pickPlaceMarker.locality ?? ''} '
+                //             '${locationController.pickPlaceMarker.postalCode ?? ''} ${locationController.pickPlaceMarker.country ?? ''}',
+                //             style: const TextStyle(fontSize: 20),
+                //             maxLines: 1,
+                //             overflow: TextOverflow.ellipsis,
+                //           ),
+                //         ),
+                //         const SizedBox(width: 10),
+                //         Icon(Icons.search,
+                //             size: 25,
+                //             color:
+                //                 Theme.of(context).textTheme.bodyLarge!.color),
+                //       ]),
+                //     ),
+                //   ),
+
                 Positioned(
                   bottom: 10,
-                  left: 10,
-                  right: 10,
-                  child: Container(
-                    height: 50,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(10),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Colors.grey,
-                          blurRadius: 6,
-                          offset: Offset(0, 2),
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          flex: 8,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Colors.grey,
+                                  blurRadius: 6,
+                                  offset: Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: ElevatedButton(
+                                onPressed: _handleSearch,
+                                child: const Text(
+                                  'Search',
+                                  style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold),
+                                )),
+                          ),
                         ),
+                        const SizedBox(
+                          width: 10,
+                        ),
+                        Expanded(
+                            flex: 1,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.teal,
+                                borderRadius: BorderRadius.circular(10),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Colors.grey,
+                                    blurRadius: 6,
+                                    offset: Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: IconButton(
+                                padding: EdgeInsets.zero,
+                                onPressed: () {
+                                  removeMarker();
+                                  addMarker(LatLng(currentLocation!.latitude!,
+                                      currentLocation!.longitude!));
+                                  googleMapController.animateCamera(
+                                      CameraUpdate.newLatLngZoom(
+                                          LatLng(currentLocation!.latitude!,
+                                              currentLocation!.longitude!),
+                                          15));
+                                },
+                                icon: const Icon(Icons.navigation_sharp),
+                                color: Colors.white,
+                              ),
+                            )),
                       ],
-                    ),
-                    child: TextField(
-                      controller: _searchController,
-                      decoration: const InputDecoration(
-                        hintText: 'Search',
-                        border: InputBorder.none,
-                        contentPadding: EdgeInsets.only(left: 15, top: 15),
-                        suffixIcon: Icon(Icons.search),
-                      ),
                     ),
                   ),
                 ),
@@ -209,3 +341,78 @@ class GoogleMapsPageState extends State<GoogleMapsPage> {
     );
   }
 }
+  // : Stack(
+                    //     children: [
+                    //       Center(
+                    //         child: GoogleMap(
+                    //           initialCameraPosition: CameraPosition(
+                    //             target: LatLng(currentLocation!.latitude!,
+                    //                 currentLocation!.longitude!),
+                    //             zoom: 15.5,
+                    //           ),
+                    //           myLocationEnabled: true,
+                    //           myLocationButtonEnabled: true,
+                    //           zoomControlsEnabled: false,
+                    //           compassEnabled: true,
+                    //           polylines: {
+                    //             if (destination != null)
+                    //               Polyline(
+                    //                 polylineId: const PolylineId('Route'),
+                    //                 color: primaryColor,
+                    //                 points: polylineCordinates,
+                    //                 width: 6,
+                    //               )
+                    //           },
+                    //           onMapCreated: (GoogleMapController controller) {
+                    //             if (_controller.isCompleted) {
+                    //               _controller.future.then((value) => value.dispose());
+                    //             }
+                    //           },
+                    //           mapType: MapType.normal,
+                    //           markers: {
+                    //             if (rideStart == true)
+                    //               Marker(
+                    //                 markerId: const MarkerId('CurrentLocation'),
+                    //                 infoWindow:
+                    //                     const InfoWindow(title: 'Current Location'),
+                    //                 position: LatLng(currentLocation!.latitude!,
+                    //                     currentLocation!.longitude!),
+                    //                 icon: BitmapDescriptor.defaultMarkerWithHue(
+                    //                   BitmapDescriptor.hueViolet,
+                    //                 ),
+                    //               ),
+                    //             if (_origin != null) _origin!,
+                    //             if (_destination != null) _destination!,
+                    //           },
+                    //           onLongPress: addMarker,
+                    //         ),
+                    //       ),
+                    // Positioned(
+                    //   bottom: 10,
+                    //   left: 10,
+                    //   right: 10,
+                    //   child: Container(
+                    //     height: 50,
+                    //     width: double.infinity,
+                    //     decoration: BoxDecoration(
+                    //       color: Colors.white,
+                    //       borderRadius: BorderRadius.circular(10),
+                    //       boxShadow: const [
+                    //         BoxShadow(
+                    //           color: Colors.grey,
+                    //           blurRadius: 6,
+                    //           offset: Offset(0, 2),
+                    //         ),
+                    //       ],
+                    //     ),
+                    //     child: TextField(
+                    //       controller: _searchController,
+                    //       decoration: const InputDecoration(
+                    //         hintText: 'Search',
+                    //         border: InputBorder.none,
+                    //         contentPadding: EdgeInsets.only(left: 15, top: 15),
+                    //         suffixIcon: Icon(Icons.search),
+                    //       ),
+                    //     ),
+                    //   ),
+                    // ),
