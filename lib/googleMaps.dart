@@ -9,8 +9,6 @@ import 'package:location/location.dart' as L;
 import 'package:lypht_prptotype/components/constants.dart';
 import 'package:google_maps_webservice/places.dart';
 import 'package:google_api_headers/google_api_headers.dart';
-// import 'package:lypht_prptotype/locationService.dart';
-// import 'package:lypht_prptotype/locationController.dart';
 
 class GoogleMapsPage extends StatefulWidget {
   const GoogleMapsPage({Key? key}) : super(key: key);
@@ -233,42 +231,6 @@ class GoogleMapsPageState extends State<GoogleMapsPage> {
                     onLongPress: addMarker,
                   ),
                 ),
-                // Positioned(
-                //   top: 100,
-                //   left: 10,
-                //   right: 20,
-                //   child: GestureDetector(
-                //     onTap: () => Get.dialog(
-                //         LocationSearchDialog(mapController: _mapController)),
-                //     child: Container(
-                //       height: 50,
-                //       padding: const EdgeInsets.symmetric(horizontal: 5),
-                //       decoration: BoxDecoration(
-                //           color: Theme.of(context).cardColor,
-                //           borderRadius: BorderRadius.circular(10)),
-                //       child: Row(children: [
-                //         Icon(Icons.location_on,
-                //             size: 25, color: Theme.of(context).primaryColor),
-                //         const SizedBox(width: 5),
-                //         //here we show the address on the top
-                //         Expanded(
-                //           child: Text(
-                //             '${locationController.pickPlaceMarker.name ?? ''} ${locationController.pickPlaceMarker.locality ?? ''} '
-                //             '${locationController.pickPlaceMarker.postalCode ?? ''} ${locationController.pickPlaceMarker.country ?? ''}',
-                //             style: const TextStyle(fontSize: 20),
-                //             maxLines: 1,
-                //             overflow: TextOverflow.ellipsis,
-                //           ),
-                //         ),
-                //         const SizedBox(width: 10),
-                //         Icon(Icons.search,
-                //             size: 25,
-                //             color:
-                //                 Theme.of(context).textTheme.bodyLarge!.color),
-                //       ]),
-                //     ),
-                //   ),
-
                 Positioned(
                   bottom: 10,
                   child: Padding(
