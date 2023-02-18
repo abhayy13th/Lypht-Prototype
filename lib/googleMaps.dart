@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-
-import 'package:flutter_google_places/flutter_google_places.dart';
+import 'package:flutter_google_places_hoc081098/flutter_google_places_hoc081098.dart';
+//import 'package:flutter_google_places/flutter_google_places.dart';
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:location/location.dart' as L;
@@ -125,6 +125,10 @@ class GoogleMapsPageState extends State<GoogleMapsPage> {
 
   Future<void> _handleSearch() async {
     Prediction? p = await PlacesAutocomplete.show(
+        offset: 0,
+        radius: 1000,
+        region: 'np',
+        sessionToken: "",
         context: context,
         apiKey: google_api_key,
         mode: Mode.overlay,
@@ -135,7 +139,7 @@ class GoogleMapsPageState extends State<GoogleMapsPage> {
         },
         strictbounds: false,
         types: [],
-        decoration: const InputDecoration(hintText: "Search"),
+        hint: "Search",
         components: [Component(Component.country, "np")]);
     if (p != null) {
       displayPrediction(p, homeScaffoldkey.currentState);
@@ -168,6 +172,12 @@ class GoogleMapsPageState extends State<GoogleMapsPage> {
     getCurrentLocation();
     super.initState();
     destination = null;
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
 //Main method
