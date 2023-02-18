@@ -39,12 +39,13 @@ dependencies:
   location: ^4.2.0
   flutter_svg: ^2.0.0+1
   flutter_polyline_points: ^1.0.0
-  dio: ^4.0.6
+
   http: ^0.13.5
-  search_map_location: ^0.0.6
+  flutter_google_places: ^0.3.0
+
   # geolocator: ^9.0.2
   # geocoding: ^2.0.5
-  flutter_google_places: ^0.3.0
+
   # flutter_typeahead: ^4.3.3
   # get: ^4.6.5
 

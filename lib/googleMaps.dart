@@ -33,12 +33,14 @@ class GoogleMapsPageState extends State<GoogleMapsPage> {
   L.LocationData? currentLocation;
 //Remove markers
   void removeMarker() {
-    setState(() {
-      _origin = null;
-      _destination = null;
-      polylineCordinates = [];
-      rideStart = false;
-    });
+    if (mounted) {
+      setState(() {
+        _origin = null;
+        _destination = null;
+        polylineCordinates = [];
+        rideStart = false;
+      });
+    }
   }
 
 //Current Location
@@ -47,18 +49,26 @@ class GoogleMapsPageState extends State<GoogleMapsPage> {
 
     location.getLocation().then((location) {
       currentLocation = location;
-      debugPrint(currentLocation.toString());
       if (mounted) {
         setState(() {});
       }
     });
+    googleMapController = await _controller.future;
 
     location.onLocationChanged.listen((L.LocationData currentLocation) {
+      this.currentLocation = currentLocation;
+
+      googleMapController.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(
+            target:
+                LatLng(currentLocation.latitude!, currentLocation.longitude!),
+            zoom: 15,
+          ),
+        ),
+      );
       if (mounted) {
-        setState(() {
-          sourceLocation = LatLng(currentLocation.latitude!,
-              currentLocation.longitude!); //update current location
-        });
+        setState(() {});
       }
     });
   }
@@ -77,9 +87,7 @@ class GoogleMapsPageState extends State<GoogleMapsPage> {
         polylineCordinates.add(LatLng(point.latitude, point.longitude));
       });
 
-      setState(() {
-        rideStart = true;
-      });
+      setState(() {});
     }
   }
 
@@ -174,7 +182,9 @@ class GoogleMapsPageState extends State<GoogleMapsPage> {
         actions: [
           IconButton(
             onPressed: () {
-              removeMarker();
+              setState(() {
+                removeMarker();
+              });
             },
             icon: const Icon(Icons.refresh),
           ),
@@ -184,124 +194,313 @@ class GoogleMapsPageState extends State<GoogleMapsPage> {
           ? const Center(
               child: Text('Loading...'),
             )
-          : Column(
+          : Stack(
               children: [
-                Expanded(
-                  child: GoogleMap(
-                    initialCameraPosition: CameraPosition(
-                      target: LatLng(currentLocation!.latitude!,
-                          currentLocation!.longitude!),
-                      zoom: 16.5,
-                    ),
-                    myLocationEnabled: true,
-                    myLocationButtonEnabled: true,
-                    zoomControlsEnabled: false,
-                    compassEnabled: true,
-                    polylines: {
-                      if (destination != null)
-                        Polyline(
-                          polylineId: const PolylineId('Route'),
-                          color: primaryColor,
-                          points: polylineCordinates,
-                          width: 4,
-                        )
-                    },
-                    onMapCreated: (GoogleMapController controller) {
-                      googleMapController = controller;
-                      if (_controller.isCompleted) {
-                        _controller.future.then((value) => value.dispose());
-                      }
-                    },
-                    mapType: MapType.normal,
-                    markers: {
-                      if (rideStart == true)
-                        Marker(
-                          markerId: const MarkerId('CurrentLocation'),
-                          infoWindow:
-                              const InfoWindow(title: 'Current Location'),
-                          position: LatLng(currentLocation!.latitude!,
-                              currentLocation!.longitude!),
-                          icon: BitmapDescriptor.defaultMarkerWithHue(
-                            BitmapDescriptor.hueViolet,
-                          ),
-                        ),
-                      if (_origin != null) _origin!,
-                      if (_destination != null) _destination!,
-                    },
-                    onLongPress: addMarker,
+                GoogleMap(
+                  initialCameraPosition: CameraPosition(
+                    target: LatLng(currentLocation!.latitude!,
+                        currentLocation!.longitude!),
+                    zoom: 16.5,
                   ),
+                  myLocationEnabled: true,
+                  myLocationButtonEnabled: true,
+                  zoomControlsEnabled: false,
+                  compassEnabled: true,
+                  polylines: {
+                    if (destination != null)
+                      Polyline(
+                        polylineId: const PolylineId('Route'),
+                        color: routeColor,
+                        points: polylineCordinates,
+                        width: 4,
+                      )
+                  },
+                  onMapCreated: (GoogleMapController controller) {
+                    googleMapController = controller;
+                    if (_controller.isCompleted) {
+                      _controller.future.then((value) => value.dispose());
+                    }
+                  },
+                  mapType: MapType.normal,
+                  markers: {
+                    if (rideStart == true)
+                      Marker(
+                        markerId: const MarkerId('CurrentLocation'),
+                        infoWindow: const InfoWindow(title: 'Current Location'),
+                        position: LatLng(currentLocation!.latitude!,
+                            currentLocation!.longitude!),
+                        icon: BitmapDescriptor.defaultMarkerWithHue(
+                          BitmapDescriptor.hueViolet,
+                        ),
+                      ),
+                    if (_origin != null) _origin!,
+                    if (_destination != null) _destination!,
+                  },
+                  onLongPress: addMarker,
                 ),
                 Positioned(
-                  bottom: 10,
-                  child: Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          flex: 8,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(10),
-                              boxShadow: const [
-                                BoxShadow(
-                                  color: Colors.grey,
-                                  blurRadius: 6,
-                                  offset: Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: ElevatedButton(
-                                onPressed: _handleSearch,
-                                child: const Text(
-                                  'Search',
-                                  style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold),
-                                )),
-                          ),
+                  top: 10,
+                  left: 10,
+                  right: 10,
+                  child: Container(
+                    height: 50,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(3.0),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Colors.black54,
+                          blurRadius: 15.0,
+                          offset: Offset(0.0, 0.75),
                         ),
-                        const SizedBox(
-                          width: 10,
-                        ),
-                        Expanded(
-                            flex: 1,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.teal,
-                                borderRadius: BorderRadius.circular(10),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: Colors.grey,
-                                    blurRadius: 6,
-                                    offset: Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: IconButton(
-                                padding: EdgeInsets.zero,
-                                onPressed: () {
-                                  removeMarker();
-                                  addMarker(LatLng(currentLocation!.latitude!,
-                                      currentLocation!.longitude!));
-                                  googleMapController.animateCamera(
-                                      CameraUpdate.newLatLngZoom(
-                                          LatLng(currentLocation!.latitude!,
-                                              currentLocation!.longitude!),
-                                          15));
-                                },
-                                icon: const Icon(Icons.navigation_sharp),
-                                color: Colors.white,
-                              ),
-                            )),
                       ],
                     ),
+                    child: TextField(
+                      onTap: _handleSearch,
+                      readOnly: true,
+                      decoration: const InputDecoration(
+                        hintText: 'Search',
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.only(left: 15.0, top: 15.0),
+                        suffixIcon: Icon(Icons.search),
+                      ),
+                    ),
+                  ),
+                ),
+                rideStart == false
+                    ? Positioned(
+                        bottom: 10,
+                        left: 20,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.all(15),
+                          ),
+                          onPressed: () {
+                            startRide();
+                          },
+                          child: const Text(
+                            'Start Ride',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18.0,
+                            ),
+                          ),
+                        ),
+                      )
+                    : Positioned(
+                        bottom: 10,
+                        left: 20,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.all(15),
+                          ),
+                          onPressed: () {
+                            showDialog<void>(
+                                context: context,
+                                builder: (BuildContext context) => AlertDialog(
+                                      title: const Text('Ride End?'),
+                                      content: SingleChildScrollView(
+                                        child: ListBody(
+                                          children: const <Widget>[
+                                            Text(
+                                                'Are you sure you want to end your ride?'),
+                                          ],
+                                        ),
+                                      ),
+                                      actions: <Widget>[
+                                        TextButton(
+                                            onPressed: () {
+                                              Navigator.of(context).pop();
+                                              endRide();
+                                            },
+                                            child: const Text('OK')),
+                                        TextButton(
+                                          child: const Text('Cancel'),
+                                          onPressed: () {
+                                            Navigator.of(context).pop();
+                                          },
+                                        ),
+                                      ],
+                                    ));
+                          },
+                          child: const Text(
+                            'End Ride',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18.0,
+                            ),
+                          ),
+                        ),
+                      ),
+                Positioned(
+                  bottom: 10,
+                  right: 10,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      shape: const CircleBorder(), //<-- SEE HERE
+                      padding: const EdgeInsets.all(15),
+                    ),
+                    onPressed: () {
+                      googleMapController.animateCamera(
+                          CameraUpdate.newLatLngZoom(
+                              LatLng(currentLocation!.latitude!,
+                                  currentLocation!.longitude!),
+                              15));
+                    },
+                    onLongPress: () {
+                      addMarker(LatLng(currentLocation!.latitude!,
+                          currentLocation!.longitude!));
+
+                      googleMapController.animateCamera(
+                          CameraUpdate.newLatLngZoom(
+                              LatLng(currentLocation!.latitude!,
+                                  currentLocation!.longitude!),
+                              15));
+                    },
+                    child: const Icon(Icons.navigation_sharp),
                   ),
                 ),
               ],
             ),
     );
   }
+
+  void startRide() {
+    setState(() {
+      rideStart = true;
+    });
+  }
+
+  void endRide() {
+    setState(() {
+      rideStart = false;
+      showDialog<void>(
+          context: context,
+          builder: (BuildContext context) => AlertDialog(
+                title: const Text('Ride Ended'),
+                content: SingleChildScrollView(
+                  child: ListBody(
+                    children: const <Widget>[
+                      Text('Your ride has ended.'),
+                      Text("   "),
+                      Text('Thank you for using our services.'),
+                    ],
+                  ),
+                ),
+                actions: <Widget>[
+                  TextButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                      child: const Text('OK')),
+                ],
+              ));
+    });
+  }
+
+  // : Column(
+  //     children: [
+  //       Expanded(
+  //         child: GoogleMap(
+  //           initialCameraPosition: CameraPosition(
+  //             target: LatLng(currentLocation!.latitude!,
+  //                 currentLocation!.longitude!),
+  //             zoom: 16.5,
+  //           ),
+  //           myLocationEnabled: true,
+  //           myLocationButtonEnabled: true,
+  //           zoomControlsEnabled: false,
+  //           compassEnabled: true,
+  //           polylines: {
+  //             if (destination != null)
+  //               Polyline(
+  //                 polylineId: const PolylineId('Route'),
+  //                 color: primaryColor,
+  //                 points: polylineCordinates,
+  //                 width: 4,
+  //               )
+  //           },
+  //           onMapCreated: (GoogleMapController controller) {
+  //             googleMapController = controller;
+  //             if (_controller.isCompleted) {
+  //               _controller.future.then((value) => value.dispose());
+  //             }
+  //           },
+  //           mapType: MapType.normal,
+  //           markers: {
+  //             if (rideStart == true)
+  //               Marker(
+  //                 markerId: const MarkerId('CurrentLocation'),
+  //                 infoWindow:
+  //                     const InfoWindow(title: 'Current Location'),
+  //                 position: LatLng(currentLocation!.latitude!,
+  //                     currentLocation!.longitude!),
+  //                 icon: BitmapDescriptor.defaultMarkerWithHue(
+  //                   BitmapDescriptor.hueViolet,
+  //                 ),
+  //               ),
+  //             if (_origin != null) _origin!,
+  //             if (_destination != null) _destination!,
+  //           },
+  //           onLongPress: addMarker,
+  //         ),
+  //       ),
+  //       Positioned(
+  //         bottom: 10,
+  //         child: Padding(
+  //           padding: const EdgeInsets.all(8.0),
+  //           child: Row(
+  //             children: [
+  //               Expanded(
+  //                 flex: 8,
+  //                 child: Container(
+  //                   decoration: BoxDecoration(
+  //                     color: Colors.teal,
+  //                     borderRadius: BorderRadius.circular(10),
+  //                   ),
+  //                   child: ElevatedButton(
+  //                       onPressed: _handleSearch,
+  //                       child: const Text(
+  //                         'Search',
+  //                         style: TextStyle(
+  //                             color: Colors.white,
+  //                             fontWeight: FontWeight.bold),
+  //                       )),
+  //                 ),
+  //               ),
+  //               const SizedBox(
+  //                 width: 10,
+  //               ),
+  //               Expanded(
+  //                   flex: 1,
+  //                   child: Container(
+  //                     decoration: BoxDecoration(
+  //                       color: Colors.teal,
+  //                       borderRadius: BorderRadius.circular(10),
+  //                     ),
+  //                     child: IconButton(
+  //                       padding: EdgeInsets.zero,
+  //                       onPressed: () {
+  //                         removeMarker();
+  //                         addMarker(LatLng(currentLocation!.latitude!,
+  //                             currentLocation!.longitude!));
+  //                         googleMapController.animateCamera(
+  //                             CameraUpdate.newLatLngZoom(
+  //                                 LatLng(currentLocation!.latitude!,
+  //                                     currentLocation!.longitude!),
+  //                                 15));
+  //                       },
+  //                       icon: const Icon(Icons.navigation_sharp),
+  //                       color: Colors.white,
+  //                     ),
+  //                   )),
+  //             ],
+  //           ),
+  //         ),
+  //       ),
+  //     ],
+  //   ),
 }
   // : Stack(
                     //     children: [
