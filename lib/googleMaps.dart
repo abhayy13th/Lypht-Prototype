@@ -44,29 +44,20 @@ class GoogleMapsPageState extends State<GoogleMapsPage> {
   }
 
 //Current Location
-  void getCurrentLocation() async {
+  void getCurrentLocation() {
     L.Location location = L.Location();
 
     location.getLocation().then((location) {
       currentLocation = location;
-      if (mounted) {
-        setState(() {});
-      }
     });
-    googleMapController = await _controller.future;
 
     location.onLocationChanged.listen((L.LocationData currentLocation) {
       this.currentLocation = currentLocation;
-
-      googleMapController.animateCamera(
-        CameraUpdate.newCameraPosition(
+      googleMapController.animateCamera(CameraUpdate.newCameraPosition(
           CameraPosition(
-            target:
-                LatLng(currentLocation.latitude!, currentLocation.longitude!),
-            zoom: 15,
-          ),
-        ),
-      );
+              target:
+                  LatLng(currentLocation.latitude!, currentLocation.longitude!),
+              zoom: 14.0)));
       if (mounted) {
         setState(() {});
       }
@@ -174,12 +165,6 @@ class GoogleMapsPageState extends State<GoogleMapsPage> {
     destination = null;
   }
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
 //Main method
   @override
   Widget build(BuildContext context) {
@@ -233,16 +218,15 @@ class GoogleMapsPageState extends State<GoogleMapsPage> {
                   },
                   mapType: MapType.normal,
                   markers: {
-                    if (rideStart == true)
-                      Marker(
-                        markerId: const MarkerId('CurrentLocation'),
-                        infoWindow: const InfoWindow(title: 'Current Location'),
-                        position: LatLng(currentLocation!.latitude!,
-                            currentLocation!.longitude!),
-                        icon: BitmapDescriptor.defaultMarkerWithHue(
-                          BitmapDescriptor.hueViolet,
-                        ),
+                    Marker(
+                      markerId: const MarkerId('CurrentLocation'),
+                      infoWindow: const InfoWindow(title: 'Current Location'),
+                      position: LatLng(currentLocation!.latitude!,
+                          currentLocation!.longitude!),
+                      icon: BitmapDescriptor.defaultMarkerWithHue(
+                        BitmapDescriptor.hueViolet,
                       ),
+                    ),
                     if (_origin != null) _origin!,
                     if (_destination != null) _destination!,
                   },
@@ -348,7 +332,7 @@ class GoogleMapsPageState extends State<GoogleMapsPage> {
                   right: 10,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      shape: const CircleBorder(), //<-- SEE HERE
+                      shape: const CircleBorder(),
                       padding: const EdgeInsets.all(15),
                     ),
                     onPressed: () {
@@ -393,7 +377,6 @@ class GoogleMapsPageState extends State<GoogleMapsPage> {
                   child: ListBody(
                     children: const <Widget>[
                       Text('Your ride has ended.'),
-                      Text("   "),
                       Text('Thank you for using our services.'),
                     ],
                   ),
